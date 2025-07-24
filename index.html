@@ -1,0 +1,60 @@
+<div class="dashboard dark-theme">
+  <!-- Header -->
+  <header class="app-header">
+    <h1>FaceID Manager</h1>
+    <div class="user-controls">
+      <button class="btn-icon"><i class="fas fa-cog"></i></button>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <div class="main-content">
+    <!-- Camera Feed -->
+    <div class="camera-feed">
+      <video id="liveCamera" autoplay muted></video>
+      <div class="face-overlay"></div>
+      <div class="camera-controls">
+        <button class="btn-primary"><i class="fas fa-camera"></i> Capture</button>
+        <button class="btn-secondary"><i class="fas fa-pause"></i> Pause</button>
+      </div>
+    </div>
+
+    <!-- Detected Faces Panel -->
+    <div class="detected-faces">
+      <h3>Recognized Faces <span class="badge">3</span></h3>
+      <div class="faces-list">
+        <!-- Face cards will be dynamically inserted here -->
+        <div class="face-card">
+          <img src="face_preview.jpg" alt="Detected face">
+          <div class="face-info">
+            <h4>John Doe</h4>
+            <p>85% match</p>
+            <span class="timestamp">10:23:45 AM</span>
+          </div>
+          <button class="btn-icon"><i class="fas fa-save"></i></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Database Sidebar -->
+  <aside class="database-sidebar">
+    <div class="search-box">
+      <input type="text" placeholder="Search database...">
+      <i class="fas fa-search"></i>
+    </div>
+    <div class="database-stats">
+      <div class="stat-card">
+        <h5>Total Faces</h5>
+        <p>1,245</p>
+      </div>
+      <div class="stat-card">
+        <h5>Today's Matches</h5>
+        <p>37</p>
+      </div>
+    </div>
+    <div class="database-entries">
+      <!-- Database entries will be dynamically inserted here -->
+    </div>
+  </aside>
+</div>
