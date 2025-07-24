@@ -176,9 +176,14 @@ def yuzni_tanib_olish():
         print("Kamerani ochib bo'lmadi!")
         return
     
+    # skip_frames = 5  
+    # frame_counter = 0
     while True:
         # Kameradan kadr olish
         ret, frame = video_capture.read()
+        frame = cv2.flip(frame, 1)
+        # frame_counter += 1
+        # if frame_counter % skip_frames != 0: continue
         if not ret:
             print("Kadrni o'qib bo'lmadi!")
             break
@@ -188,7 +193,8 @@ def yuzni_tanib_olish():
         
         try:
             # Kadrdagi yuzlarni topish
-            face_locations = face_recognition.face_locations(rgb_frame)
+            # face_locations = face_recognition.face_locations(rgb_frame, model="hog")
+            face_locations = face_recognition.face_locations(rgb_frame) #cnn da ishlaydi
             
             # Yuzlarni kodlash
             face_encodings = face_recognition.face_encodings(rgb_frame, face_locations, num_jitters=1)
@@ -204,7 +210,7 @@ def yuzni_tanib_olish():
                 if True in matches:
                     first_match_index = matches.index(True)
                     face_id = known_face_ids[first_match_index]
-                    name = f"Shaxs {face_id}"
+                    name = f"{face_id}-jangchi"
                     
                     # Kirishni logga yozish
                     kirishni_loglash(face_id)

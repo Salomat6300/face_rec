@@ -1,95 +1,257 @@
 import cv2
 import face_recognition
-import psycopg2
 import numpy as np
 from datetime import datetime
+import psycopg2
+from psycopg2 import sql
+import io
+import os
 
-# PostgreSQL ulanishi
-conn = psycopg2.connect(
-    dbname="face_db",
-    user="postgres",
-    password="2002",
-    host="localhost",
-    port="5432"
-)
-cursor = conn.cursor()
+# Bazaga ulanish parametrlari
+DB_NAME = "face_db"
+DB_USER = "postgres"
+DB_PASSWORD = "2002"
+DB_HOST = "localhost"
+DB_PORT = "5432"
 
-# Jadvalni yaratish (ushbu qismni qo'shing)
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS face_data (
-    id SERIAL PRIMARY KEY,
-    person_id INTEGER,
-    face_encoding BYTEA,
-    image_data BYTEA,
-    capture_time TIMESTAMP,
-    person_name VARCHAR(100)
-)
-""")
-conn.commit()
+def get_db_connection():
+    """PostgreSQL bazasiga ulanish"""
+    try:
+        conn = psycopg2.connect(
+            dbname=DB_NAME,
+            user=DB_USER,
+            password=DB_PASSWORD,
+            host=DB_HOST,
+            port=DB_PORT
+        )
+        return conn
+    except Exception as e:
+        print(f"Bazaga ulanib bo'lmadi: {e}")
+        return None
 
-# Odamning ismini so'rash
-person_name = input("Odamning ismini kiriting: ")
-
-# Person_id uchun yangi ID generatsiya qilish
-cursor.execute("SELECT COALESCE(MAX(person_id), 0) + 1 FROM face_data")
-person_id = cursor.fetchone()[0]
-
-# Kamera ochish
-video_capture = cv2.VideoCapture(0)
-saved_images = 0
-
-while saved_images < 10:
-    ret, frame = video_capture.read()
+def create_tables():
+    """Jadvallarni yaratish"""
+    conn = get_db_connection()
+    if conn is None:
+        return False
     
-    # Yuzlarni topish
-    face_locations = face_recognition.face_locations(frame)
+    try:
+        cur = conn.cursor()
+        
+        # face_data jadvali
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS face_data (
+            id SERIAL PRIMARY KEY,
+            img BYTEA NOT NULL,
+            encoding FLOAT[] NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """)
+        
+        # face_log_data jadvali
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS face_log_data (
+            id SERIAL PRIMARY KEY,
+            id_name INTEGER REFERENCES face_data(id),
+            kirish_vaqti TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """)
+        
+        conn.commit()
+        print("Jadvallar muvaffaqiyatli yaratildi!")
+        return True
+    except Exception as e:
+        print(f"Jadvallarni yaratishda xatolik: {e}")
+        return False
+    finally:
+        if conn:
+            conn.close()
+
+def bazaga_yuz_qoshish(face_image, face_encoding):
+    """Yangi yuzni bazaga qo'shish"""
+    conn = get_db_connection()
+    if conn is None:
+        return None
     
-    for face_location in face_locations:
-        if saved_images >= 10:
-            break
-            
-        top, right, bottom, left = face_location
-        face_image = frame[top:bottom, left:right]
+    try:
+        cur = conn.cursor()
         
-        # Rasm o'lchamini standartlashtirish
-        face_image = cv2.resize(face_image, (200, 200))
+        # Rasmni byte ko'rinishiga o'tkazish
+        is_success, buffer = cv2.imencode(".jpg", face_image)
+        io_buf = io.BytesIO(buffer)
         
-        face_encodings = face_recognition.face_encodings(frame, [face_location])
-        if len(face_encodings) == 0:
-            continue
-            
-        face_encoding = face_encodings[0]
-        _, img_encoded = cv2.imencode('.jpg', face_image)
+        # Kodni list ko'rinishiga o'tkazish
+        encoding_list = face_encoding.tolist()
         
-        # Ma'lumotlar bazasiga saqlash
-        cursor.execute(
-            """INSERT INTO face_data 
-            (person_id, face_encoding, image_data, capture_time, person_name) 
-            VALUES (%s, %s, %s, %s, %s)""",
-            (person_id, 
-             psycopg2.Binary(face_encoding.tobytes()), 
-             psycopg2.Binary(img_encoded.tobytes()),
-             datetime.now(),
-             person_name)
+        # face_data jadvaliga qo'shish
+        cur.execute(
+            sql.SQL("""
+            INSERT INTO face_data (img, encoding) 
+            VALUES (%s, %s)
+            RETURNING id
+            """),
+            (io_buf.read(), encoding_list)
+        )
+        
+        face_id = cur.fetchone()[0]
+        
+        # face_log_data jadvaliga kirishni yozish
+        cur.execute(
+            sql.SQL("""
+            INSERT INTO face_log_data (id_name) 
+            VALUES (%s)
+            """),
+            (face_id,)
+        )
+        
+        conn.commit()
+        return face_id
+    except Exception as e:
+        print(f"Yuzni bazaga qo'shishda xatolik: {e}")
+        return None
+    finally:
+        if conn:
+            conn.close()
+
+def barcha_yuz_kodlarini_olish():
+    """Bazadagi barcha yuz kodlarini olish"""
+    conn = get_db_connection()
+    if conn is None:
+        return [], []
+    
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT id, encoding FROM face_data")
+        rows = cur.fetchall()
+        
+        known_face_ids = []
+        known_face_encodings = []
+        
+        for row in rows:
+            face_id = row[0]
+            encoding_array = row[1]
+            known_face_ids.append(face_id)
+            known_face_encodings.append(np.array(encoding_array))
+        
+        return known_face_ids, known_face_encodings
+    except Exception as e:
+        print(f"Yuz kodlarini olishda xatolik: {e}")
+        return [], []
+    finally:
+        if conn:
+            conn.close()
+
+def kirishni_loglash(face_id):
+    """Kirishni logga yozish"""
+    conn = get_db_connection()
+    if conn is None:
+        return False
+    
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            sql.SQL("""
+            INSERT INTO face_log_data (id_name) 
+            VALUES (%s)
+            """),
+            (face_id,)
         )
         conn.commit()
-        
-        saved_images += 1
-        print(f"Saqlangan rasmlar: {saved_images}/10 - {person_name}")
-        
-        # Ekranda yuzni chizish
-        cv2.rectangle(frame, (left, top), (right, bottom), (0, 0, 255), 2)
-        cv2.putText(frame, f"{person_name} {saved_images}/10", 
-                   (left, top-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
-    
-    # Natijani ko'rsatish
-    cv2.imshow('Video', frame)
-    
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
+        return True
+    except Exception as e:
+        print(f"Kirishni loglashda xatolik: {e}")
+        return False
+    finally:
+        if conn:
+            conn.close()
 
-# Resurslarni ozod qilish
-video_capture.release()
-cv2.destroyAllWindows()
-cursor.close()
-conn.close()
+def yuzni_tanib_olish():
+    """Asosiy yuzni tanib olish funksiyasi"""
+    # Bazadan ma'lum yuzlarni yuklash
+    known_face_ids, known_face_encodings = barcha_yuz_kodlarini_olish()
+    
+    # Kamerani ishga tushirish
+    video_capture = cv2.VideoCapture(0)
+    if not video_capture.isOpened():
+        print("Kamerani ochib bo'lmadi!")
+        return
+    
+    # skip_frames = 5  
+    # frame_counter = 0
+    while True:
+        # Kameradan kadr olish
+        ret, frame = video_capture.read()
+        frame = cv2.flip(frame, 1)
+        # frame_counter += 1
+        # if frame_counter % skip_frames != 0: continue
+        if not ret:
+            print("Kadrni o'qib bo'lmadi!")
+            break
+        
+        # Rasmni RGB formatiga o'tkazish
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        
+        try:
+            # Kadrdagi yuzlarni topish
+            # face_locations = face_recognition.face_locations(rgb_frame, model="hog")
+            face_locations = face_recognition.face_locations(rgb_frame) #cnn da ishlaydi
+            
+            # Yuzlarni kodlash
+            face_encodings = face_recognition.face_encodings(rgb_frame, face_locations, num_jitters=1)
+            
+            for (top, right, bottom, left), face_encoding in zip(face_locations, face_encodings):
+                # Yuzni ma'lum yuzlar bilan solishtirish
+                matches = face_recognition.compare_faces(known_face_encodings, face_encoding, tolerance=0.6)
+                
+                name = "Noma'lum"
+                face_id = None
+                
+                # Agar mos yuz topilsa
+                if True in matches:
+                    first_match_index = matches.index(True)
+                    face_id = known_face_ids[first_match_index]
+                    name = f"Shaxs {face_id}"
+                    
+                    # Kirishni logga yozish
+                    kirishni_loglash(face_id)
+                else:
+                    # Yangi yuzni bazaga qo'shish
+                    face_image = frame[top:bottom, left:right]
+                    face_id = bazaga_yuz_qoshish(face_image, face_encoding)
+                    if face_id:
+                        name = f"Yangi shaxs {face_id}"
+                        
+                        # Ma'lum yuzlar ro'yxatini yangilash
+                        known_face_ids.append(face_id)
+                        known_face_encodings.append(face_encoding)
+                
+                # Yuz atrofida to'rtburchak chizish
+                cv2.rectangle(frame, (left, top), (right, bottom), (0, 0, 255), 2)
+                
+                # Yuz ostiga nom yozish
+                cv2.rectangle(frame, (left, bottom - 35), (right, bottom), (0, 0, 255), cv2.FILLED)
+                font = cv2.FONT_HERSHEY_DUPLEX
+                cv2.putText(frame, name, (left + 6, bottom - 6), font, 0.5, (255, 255, 255), 1)
+            
+            # Natijani ekranga chiqarish
+            cv2.imshow('Yuzni tanib olish', frame)
+            
+        except Exception as e:
+            print(f"Yuzni tanib olishda xatolik: {e}")
+            continue
+        
+        # Chiqish uchun 'q' tugmasini bosing
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+    
+    # Kamerani qo'yib yuborish
+    video_capture.release()
+    cv2.destroyAllWindows()
+
+if __name__ == "__main__":
+    # Jadvallarni yaratish
+    if create_tables():
+        print("Tizim ishga tushmoqda...")
+        yuzni_tanib_olish()
+    else:
+        print("Jadvallarni yaratishda xatolik. Dastur to'xtatildi.")
