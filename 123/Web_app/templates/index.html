@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Yuzni Tanib Olish Tizimi</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --primary-color: #4361ee;
+      --success-color: #4cc9f0;
+      --error-color: #f72585;
+      --warning-color: #f8961e;
+      --text-color: #2b2d42;
+      --light-text: #8d99ae;
+      --bg-color: #f8f9fa;
+      --card-bg: #ffffff;
+      --shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+    }
+
+    * {
+      margin: 0; 
+      padding: 0; 
+      box-sizing: border-box;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      color: var(--text-color);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px;
+      min-height: 100vh;
+      transition: background 0.3s ease;
+    }
+
+    h2 {
+      font-weight: 600;
+      font-size: 1.8rem;
+      margin-bottom: 25px;
+      color: var(--primary-color);
+      letter-spacing: 0.05em;
+      text-align: center;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 800px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .video-container {
+      width: 100%;
+      background: var(--card-bg);
+      box-shadow: var(--shadow);
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid rgba(0, 0, 0, 0.05);
+      position: relative;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .video-container:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 12px 25px rgba(0, 0, 0, 0.15);
+    }
+
+    .video-container img {
+      display: block;
+      width: 100%;
+      height: auto;
+      aspect-ratio: 4/3;
+      object-fit: cover;
+      transition: filter 0.3s ease;
+      border-radius: 16px 16px 0 0;
+    }
+
+    .status-bar {
+      width: 100%;
+      background: var(--primary-color);
+      color: white;
+      text-align: center;
+      font-size: 1rem;
+      padding: 12px 0;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      user-select: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .status-bar i {
+      font-size: 1.2rem;
+    }
+
+    .controls {
+      display: flex;
+      gap: 15px;
+      margin-top: 10px;
+      width: 100%;
+      justify-content: center;
+    }
+
+    .btn {
+      padding: 10px 20px;
+      border-radius: 8px;
+      border: none;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+
+    .btn-primary {
+      background-color: var(--primary-color);
+      color: white;
+    }
+
+    .btn-outline {
+      background-color: transparent;
+      border: 1px solid var(--primary-color);
+      color: var(--primary-color);
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    .btn:active {
+      transform: translateY(0);
+    }
+
+    .stats {
+      display: flex;
+      gap: 15px;
+      margin-top: 20px;
+      width: 100%;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .stat-card {
+      background: var(--card-bg);
+      padding: 15px;
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+      min-width: 120px;
+      text-align: center;
+    }
+
+    .stat-card h3 {
+      font-size: 0.9rem;
+      color: var(--light-text);
+      margin-bottom: 5px;
+    }
+
+    .stat-card p {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--primary-color);
+    }
+
+    .log-container {
+      width: 100%;
+      background: var(--card-bg);
+      padding: 15px;
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+      margin-top: 20px;
+    }
+
+    .log-container h3 {
+      margin-bottom: 10px;
+      color: var(--primary-color);
+    }
+
+    .log-entry {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid #eee;
+    }
+
+    .log-entry:last-child {
+      border-bottom: none;
+    }
+
+    .progress-container {
+      width: 100%;
+      height: 5px;
+      background: #e9ecef;
+      margin-top: -5px;
+      border-radius: 0 0 16px 16px;
+      overflow: hidden;
+    }
+
+    .progress-bar {
+      height: 100%;
+      background: var(--success-color);
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 0.6; }
+      50% { opacity: 1; }
+      100% { opacity: 0.6; }
+    }
+
+    .pulse {
+      animation: pulse 1.5s infinite;
+    }
+
+    /* Dark mode */
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --primary-color: #4895ef;
+        --text-color: #f8f9fa;
+        --light-text: #adb5bd;
+        --bg-color: #212529;
+        --card-bg: #2b2d42;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .controls {
+        flex-direction: column;
+        align-items: center;
+      }
+      
+      .btn {
+        width: 100%;
+        justify-content: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2><i class="fas fa-face-recognition"></i> Yuzni Tanib Olish Tizimi</h2>
+    
+    <div class="video-container">
+      <img src="/video_feed" alt="Video feed" id="videoFeed" />
+      <div class="progress-container">
+        <div class="progress-bar" id="progressBar"></div>
+      </div>
+      <div class="status-bar" id="statusBar">
+        <i class="fas fa-circle-notch fa-spin"></i>
+        <span>Yuzni aniqlash davom etmoqda...</span>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="btn btn-primary" id="captureBtn">
+        <i class="fas fa-camera"></i> Rasmini olish
+      </button>
+      <button class="btn btn-outline" id="toggleFullscreenBtn">
+        <i class="fas fa-expand"></i> To'liq ekran
+      </button>
+    </div>
+
+    <div class="stats">
+      <div class="stat-card">
+        <h3>Foydalanuvchilar</h3>
+        <p id="totalUsers">0</p>
+      </div>
+      <div class="stat-card">
+        <h3>Bugungi kirish</h3>
+        <p id="todayEntries">0</p>
+      </div>
+      <div class="stat-card">
+        <h3>FPS</h3>
+        <p id="fpsCounter">0</p>
+      </div>
+    </div>
+
+    <div class="log-container">
+      <h3>Oxirgi kirishlar</h3>
+      <div id="lastEntries">
+        <div class="log-entry">
+          <span>Tizim yuklanmoqda...</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    &copy; 2023 Yuzni Tanib Olish Tizimi &mdash; FastAPI & OpenCV asosida
+  </footer>
+
+  <script>
+    // Elementlarni tanib olish
+const videoFeed = document.getElementById('videoFeed');
+const statusBar = document.getElementById('statusBar');
+const statusText = statusBar.querySelector('span');
+const statusIcon = statusBar.querySelector('i');
+const progressBar = document.getElementById('progressBar');
+const captureBtn = document.getElementById('captureBtn');
+const toggleFullscreenBtn = document.getElementById('toggleFullscreenBtn');
+const totalUsersEl = document.getElementById('totalUsers');
+const todayEntriesEl = document.getElementById('todayEntries');
+const fpsCounterEl = document.getElementById('fpsCounter');
+const lastEntriesEl = document.getElementById('lastEntries');
+
+// O'zgaruvchilar
+let lastTimestamp = 0;
+let fps = 0;
+let isProcessing = false;
+let progressInterval;
+let statsInterval;
+
+// Statusni yangilash funksiyasi
+function updateStatus(status, type = 'info') {
+  statusText.textContent = status;
+  
+  // Icon va ranglarni o'zgartirish
+  switch(type) {
+    case 'success':
+      statusBar.style.backgroundColor = 'var(--success-color)';
+      statusIcon.className = 'fas fa-check-circle';
+      break;
+    case 'error':
+      statusBar.style.backgroundColor = 'var(--error-color)';
+      statusIcon.className = 'fas fa-exclamation-circle';
+      break;
+    case 'warning':
+      statusBar.style.backgroundColor = 'var(--warning-color)';
+      statusIcon.className = 'fas fa-exclamation-triangle';
+      break;
+    default: // info
+      statusBar.style.backgroundColor = 'var(--primary-color)';
+      statusIcon.className = 'fas fa-circle-notch fa-spin';
+  }
+}
+
+// Progress bari animatsiyasi
+function startProgressAnimation() {
+  let progress = 0;
+  progressInterval = setInterval(() => {
+    progress = (progress + 5) % 100;
+    progressBar.style.width = `${progress}%`;
+  }, 100);
+}
+
+// FPS hisoblash
+function calculateFPS() {
+  const now = performance.now();
+  if (lastTimestamp) {
+    fps = Math.round(1000 / (now - lastTimestamp));
+    fpsCounterEl.textContent = fps;
+  }
+  lastTimestamp = now;
+  requestAnimationFrame(calculateFPS);
+}
+
+// Statistikani yangilash
+async function updateStats() {
+  try {
+    const response = await fetch('/stats');
+    if (!response.ok) throw new Error('Statistika olinmadi');
+    
+    const data = await response.json();
+    
+    totalUsersEl.textContent = data.total_users;
+    todayEntriesEl.textContent = data.today_entries;
+    
+    // Kirishlar ro'yxatini yangilash
+    lastEntriesEl.innerHTML = '';
+    data.last_entries.forEach(entry => {
+      const entryElement = document.createElement('div');
+      entryElement.className = 'log-entry';
+      
+      const time = new Date(entry.time).toLocaleTimeString();
+      entryElement.innerHTML = `
+        <span>Foydalanuvchi #${entry.id}</span>
+        <span>${time}</span>
+      `;
+      
+      lastEntriesEl.appendChild(entryElement);
+    });
+    
+  } catch (error) {
+    console.error('Statistikani yangilashda xatolik:', error);
+  }
+}
+
+// Video feed xatosi
+videoFeed.onerror = () => {
+  clearInterval(progressInterval);
+  updateStatus("Video feed mavjud emas yoki yuklanmadi", "error");
+  videoFeed.alt = "Video feed mavjud emas.";
+};
+
+// Rasmini olish tugmasi
+captureBtn.addEventListener('click', async () => {
+  if (isProcessing) return;
+  
+  isProcessing = true;
+  updateStatus("Rasmi olinmoqda...", "warning");
+  
+  try {
+    const response = await fetch('/capture', {
+      method: 'POST'
+    });
+    
+    if (response.ok) {
+      updateStatus("Rasm muvaffaqiyatli olindi!", "success");
+    } else {
+      updateStatus("Rasm olishda xatolik", "error");
+    }
+  } catch (error) {
+    updateStatus("Rasm olishda xatolik", "error");
+    console.error("Xatolik:", error);
+  } finally {
+    isProcessing = false;
+    
+    // 2 sekunddan keyin holatni tiklash
+    setTimeout(() => {
+      updateStatus("Yuzni aniqlash davom etmoqda...");
+    }, 2000);
+  }
+});
+
+// To'liq ekran tugmasi
+toggleFullscreenBtn.addEventListener('click', () => {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen().catch(err => {
+      console.error(`To'liq ekran rejimiga o'tishda xatolik: ${err.message}`);
+    });
+  } else {
+    if (document.exitFullscreen) {
+      document.exitFullscreen();
+    }
+  }
+});
+
+// Tizimni ishga tushirish
+function initializeSystem() {
+  updateStatus("Tizim ishga tushirilmoqda...");
+  startProgressAnimation();
+  
+  // Statistikani yangilash
+  updateStats();
+  statsInterval = setInterval(updateStats, 10000); // Har 10 sekundda yangilash
+  
+  // FPS hisoblashni boshlash
+  calculateFPS();
+  
+  // 3 sekunddan keyin tizim tayyor deb bildirish
+  setTimeout(() => {
+    updateStatus("Tizim tayyor, yuzlarni aniqlash boshlandi", "success");
+    setTimeout(() => {
+      updateStatus("Yuzni aniqlash davom etmoqda...");
+    }, 2000);
+  }, 3000);
+}
+
+// Sahifa yuklanganda tizimni ishga tushirish
+window.addEventListener('load', initializeSystem);
+
+// To'liq ekran rejimini kuzatish
+document.addEventListener('fullscreenchange', () => {
+  if (document.fullscreenElement) {
+    toggleFullscreenBtn.innerHTML = '<i class="fas fa-compress"></i> Ekrandan chiqish';
+  } else {
+    toggleFullscreenBtn.innerHTML = '<i class="fas fa-expand"></i> To\'liq ekran';
+  }
+});
+  </script>
+</body>
+</html>
+

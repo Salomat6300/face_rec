@@ -166,89 +166,101 @@ def kirishni_loglash(face_id):
             conn.close()
 
 def yuzni_tanib_olish():
-    """Asosiy yuzni tanib olish funksiyasi"""
-    # Bazadan ma'lum yuzlarni yuklash
-    known_face_ids, known_face_encodings = barcha_yuz_kodlarini_olish()
+    import time  # Yangi import
     
-    # Kamerani ishga tushirish
+    known_face_ids, known_face_encodings = barcha_yuz_kodlarini_olish()
     video_capture = cv2.VideoCapture(0)
-    video_capture.set(cv2.CAP_PROP_FRAME_WIDTH, 640)  
-    video_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 480) 
-    video_capture.set(cv2.CAP_PROP_FPS, 10)
+    
     if not video_capture.isOpened():
-        print("Kamerani ochib bo'lmadi!")
+        print("Kamera ochib bo'lmadi! Iltimos, kamera ulanganligini tekshiring.")
         return
     
-    skip_frames = 5  
-    frame_counter = 0
-    while True:
-        # Kameradan kadr olish
-        ret, frame = video_capture.read()
-        frame = cv2.flip(frame, 1)
-        frame_counter += 1
-        if frame_counter % skip_frames != 0: continue
-        if not ret:
-            print("Kadrni o'qib bo'lmadi!")
-            break
-        
-        # Rasmni RGB formatiga o'tkazish
-        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        
-        try:
-            # Kadrdagi yuzlarni topish
-            face_locations = face_recognition.face_locations(rgb_frame, model="hog")
+    # Kamera sozlamalari
+    video_capture.set(cv2.CAP_PROP_FRAME_WIDTH, 640)  # 1280 o'rniga 640
+    video_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)  # 720 o'rniga 480
+    video_capture.set(cv2.CAP_PROP_FPS, 15)  # 30 o'rniga 15
+    
+    try:
+        while True:
+            start_time = time.time()
             
-            # Yuzlarni kodlash
-            face_encodings = face_recognition.face_encodings(rgb_frame, face_locations, num_jitters=1)
+            ret, frame = video_capture.read()
+            if not ret:
+                print("Kadrni o'qib bo'lmadi!")
+                break
+            
+            frame = cv2.flip(frame, 1)
+            
+            # Soddalashtirilgan preprocessing
+            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            
+            # Yuzlarni aniqlash (HOG modeli)
+            face_locations = face_recognition.face_locations(
+                rgb_frame, 
+                model="hog",
+                number_of_times_to_upsample=1
+            )
+            
+            # Faqat bir nechta yuz uchun kodlash
+            face_encodings = face_recognition.face_encodings(
+                rgb_frame, 
+                face_locations[:3],  # Faqat dastlabki 3 ta yuz
+                num_jitters=1,  # 3 o'rniga 1
+                model="small"  # large o'rniga small
+            )
             
             for (top, right, bottom, left), face_encoding in zip(face_locations, face_encodings):
-                # Yuzni ma'lum yuzlar bilan solishtirish
-                matches = face_recognition.compare_faces(known_face_encodings, face_encoding, tolerance=0.6)
-                
-                name = "Noma'lum"
-                face_id = None
-                
-                # Agar mos yuz topilsa
-                if True in matches:
-                    first_match_index = matches.index(True)
-                    face_id = known_face_ids[first_match_index]
-                    name = f"{face_id}-Jangchi"
+                try:
+                    face_distances = face_recognition.face_distance(known_face_encodings, face_encoding)
                     
-                    # Kirishni logga yozish
-                    kirishni_loglash(face_id)
-                else:
-                    # Yangi yuzni bazaga qo'shish
-                    face_image = frame[top:bottom, left:right]
-                    face_id = bazaga_yuz_qoshish(face_image, face_encoding)
-                    if face_id:
-                        name = f"Yangi {face_id}-Jangchi"
+                    if len(face_distances) > 0:
+                        best_match_index = np.argmin(face_distances)
                         
-                        # Ma'lum yuzlar ro'yxatini yangilash
-                        known_face_ids.append(face_id)
-                        known_face_encodings.append(face_encoding)
+                        if face_distances[best_match_index] < 0.6:  # 0.5 o'rniga 0.6
+                            face_id = known_face_ids[best_match_index]
+                            name = f"{face_id}-Jangchi"
+                            kirishni_loglash(face_id)
+                        else:
+                            face_image = frame[top:bottom, left:right]
+                            face_id = bazaga_yuz_qoshish(face_image, face_encoding)
+                            if face_id:
+                                name = f"Yangi {face_id}-Jangchi"
+                                known_face_ids.append(face_id)
+                                known_face_encodings.append(face_encoding)
+                    else:
+                        face_image = frame[top:bottom, left:right]
+                        face_id = bazaga_yuz_qoshish(face_image, face_encoding)
+                        if face_id:
+                            name = f"Yangi {face_id}-Jangchi"
+                            known_face_ids.append(face_id)
+                            known_face_encodings.append(face_encoding)
+                    
+                    # Ekranga chizish
+                    cv2.rectangle(frame, (left, top), (right, bottom), (0, 255, 0), 2)
+                    cv2.putText(frame, name, (left + 6, bottom - 6), 
+                               cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
                 
-                # Yuz atrofida to'rtburchak chizish
-                cv2.rectangle(frame, (left, top), (right, bottom), (0, 0, 255), 2)
-                
-                # Yuz ostiga nom yozish
-                cv2.rectangle(frame, (left, bottom + 5), (right, bottom + 35), (0, 0, 255), cv2.FILLED)
-                font = cv2.FONT_HERSHEY_DUPLEX
-                cv2.putText(frame, name, (left + 6, bottom + 25), font, 0.5, (255, 255, 255), 1)
+                except Exception as e:
+                    print(f"Yuzni qayta ishlashda xatolik: {e}")
+                    continue
             
-            # Natijani ekranga chiqarish
             cv2.imshow('Yuzni tanib olish', frame)
             
-        except Exception as e:
-            print(f"Yuzni tanib olishda xatolik: {e}")
-            continue
-        
-        # Chiqish uchun 'q' tugmasini bosing
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+            # Chiqish shartlari
+            key = cv2.waitKey(1)
+            if key == ord('q') or key == 27:  # ESC tugmasi
+                break
+                
+            # FPS ni cheklash
+            elapsed_time = time.time() - start_time
+            if elapsed_time < 0.066:  # ~15 FPS
+                time.sleep(0.066 - elapsed_time)
     
-    # Kamerani qo'yib yuborish
-    video_capture.release()
-    cv2.destroyAllWindows()
+    except Exception as e:
+        print(f"Kutilmagan xatolik: {e}")
+    finally:
+        video_capture.release()
+        cv2.destroyAllWindows()
 
 if __name__ == "__main__":
     # Jadvallarni yaratish
